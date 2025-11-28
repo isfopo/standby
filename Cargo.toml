@@ -6,6 +6,6 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
 cpal = "0.15"
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.38", features = ["full", "signal"] }
 ratatui = "0.26"
 crossterm = "0.27"

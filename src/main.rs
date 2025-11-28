@@ -3,15 +3,15 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
-    Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
+    Terminal,
 };
 use std::io;
 use std::sync::{Arc, Mutex};
@@ -52,7 +52,10 @@ fn create_db_labels(width: usize, threshold_db: i32) -> Line<'static> {
         // Check if this position should show the threshold marker
         if i == threshold_pos {
             // Show threshold marker with bright color
-            spans.push(Span::styled("▲".to_string(), Style::default().fg(Color::White)));
+            spans.push(Span::styled(
+                "▲".to_string(),
+                Style::default().fg(Color::White),
+            ));
             continue;
         }
 
@@ -209,7 +212,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Second stage: heavy smoothing for display (easing effect)
             const DISPLAY_SMOOTHING: f32 = 0.15;
-            state.display_db = state.display_db * (1.0 - DISPLAY_SMOOTHING) + state.smoothed_db * DISPLAY_SMOOTHING;
+            state.display_db = state.display_db * (1.0 - DISPLAY_SMOOTHING)
+                + state.smoothed_db * DISPLAY_SMOOTHING;
 
             let mut is_above = is_above_clone.lock().unwrap();
             if max_sample > linear_threshold_clone {
