@@ -7,7 +7,7 @@ use crate::error::{AppError, AppResult};
 use crate::state::{AppState, SharedState};
 use crate::ui;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
+    event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -70,32 +70,59 @@ impl App {
         // Main UI loop
         let mut interval = tokio::time::interval(Duration::from_millis(crate::constants::ui::UPDATE_INTERVAL_MS));
         loop {
+            // Update state from shared values
+            app_state.update_from_audio(&shared_state.current_db, &shared_state.smoothed_db, &shared_state.display_db, &shared_state.threshold_reached);
+
+            // Render UI
+            self.terminal.draw(|f| {
+                let ui_state = ui::UiState {
+                    device_name: app_state.device_name.clone(),
+                    current_db: app_state.current_db,
+                    display_db: app_state.display_db,
+                    threshold_db: app_state.threshold_db,
+                    status: app_state.status.clone(),
+                };
+                ui::render_ui(f, &ui_state);
+            })?;
+
+            // Check if threshold reached
+            if app_state.threshold_reached {
+                break;
+            }
+
+            // Check for keyboard events and signals
+            let mut should_exit = false;
+
+            // Check for Ctrl+C signal
             tokio::select! {
-                _ = interval.tick() => {
-                    // Update state from shared values
-                    app_state.update_from_audio(&shared_state.current_db, &shared_state.smoothed_db, &shared_state.display_db, &shared_state.threshold_reached);
-
-                    // Render UI
-                    self.terminal.draw(|f| {
-                        let ui_state = ui::UiState {
-                            device_name: app_state.device_name.clone(),
-                            current_db: app_state.current_db,
-                            display_db: app_state.display_db,
-                            threshold_db: app_state.threshold_db,
-                            status: app_state.status.clone(),
-                        };
-                        ui::render_ui(f, &ui_state);
-                    })?;
-
-                    // Check if threshold reached
-                    if app_state.threshold_reached {
-                        break;
-                    }
-                }
                 _ = tokio::signal::ctrl_c() => {
-                    break;
+                    should_exit = true;
+                }
+                _ = tokio::time::sleep(Duration::from_millis(1)) => {
+                    // Timeout - check for keyboard events
                 }
             }
+
+            // Check for keyboard events (Escape to quit)
+            if !should_exit && crossterm::event::poll(Duration::from_millis(0))?
+                && let Event::Key(key_event) = crossterm::event::read()? {
+                match key_event.code {
+                    KeyCode::Esc => {
+                        should_exit = true;
+                    }
+                    KeyCode::Char('c') if key_event.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+                        should_exit = true;
+                    }
+                    _ => {}
+                }
+            }
+
+            if should_exit {
+                break;
+            }
+
+            // Wait for next interval
+            interval.tick().await;
         }
 
         // Cleanup

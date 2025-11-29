@@ -27,7 +27,7 @@ impl AppState {
             smoothed_db: crate::constants::audio::MIN_DB_LEVEL,
             display_db: crate::constants::audio::MIN_DB_LEVEL,
             threshold_db,
-            status: format!("Monitoring {}... Press Ctrl+C to quit.", device_name),
+            status: format!("Monitoring {}... Press Ctrl+C or Escape to quit.", device_name),
             threshold_reached: false,
         }
     }
