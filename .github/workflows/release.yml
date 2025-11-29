@@ -1,0 +1,345 @@
+name: Release and Homebrew
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: Build for ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: standby-x86_64-apple-darwin.tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: standby-aarch64-apple-darwin.tar.gz
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: standby-x86_64-unknown-linux-gnu.tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: standby-x86_64-pc-windows-msvc.zip
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Build release
+      run: cargo build --release --target ${{ matrix.target }}
+
+    - name: Package binary (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        cd target/${{ matrix.target }}/release
+        tar -czf ../../../${{ matrix.name }} standby
+        cd ../../..
+
+    - name: Package binary (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        cd target/${{ matrix.target }}/release
+        7z a ../../../${{ matrix.name }} standby.exe
+        cd ../../..
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries-${{ matrix.target }}
+        path: ${{ matrix.name }}
+
+  create-release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Get version from tag
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ inputs.tag_name }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "VERSION: $VERSION"
+
+    - name: Create release archives
+      run: |
+        mkdir release-assets
+        for dir in artifacts/*/; do
+          if [ -d "$dir" ]; then
+            mv "$dir"/*.tar.gz release-assets/ 2>/dev/null || true
+            mv "$dir"/*.zip release-assets/ 2>/dev/null || true
+          fi
+        done
+        ls -la release-assets/
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.version }}
+        name: Release ${{ steps.get_version.outputs.version }}
+        body: |
+          ## Changes
+
+          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+          ## Downloads
+
+          This release includes binaries for multiple platforms:
+          - macOS (x86_64)
+          - macOS (Apple Silicon)
+          - Linux (x86_64)
+          - Windows (x86_64)
+        files: release-assets/*
+        draft: false
+        prerelease: false
+
+  generate-formula:
+    name: Generate Homebrew Formula
+    needs: create-release
+    runs-on: ubuntu-latest
+    outputs:
+      formula: ${{ steps.generate.outputs.formula }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get version from tag
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ inputs.tag_name }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+        # Remove 'v' prefix if present
+        CLEAN_VERSION="${VERSION#v}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "clean_version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Generate Homebrew formula
+      id: generate
+      run: |
+        REPO_NAME="${GITHUB_REPOSITORY#*/}"
+        VERSION="${{ steps.get_version.outputs.clean_version }}"
+        TAG="${{ steps.get_version.outputs.version }}"
+
+        # Calculate SHA256 for macOS x86_64 binary
+        MACOS_X86_SHA=$(curl -sL "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/standby-x86_64-apple-darwin.tar.gz" | sha256sum | cut -d' ' -f1)
+        MACOS_ARM_SHA=$(curl -sL "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/standby-aarch64-apple-darwin.tar.gz" | sha256sum | cut -d' ' -f1)
+
+        FORMULA=$(cat << EOF
+        class Standby < Formula
+          desc "Terminal-based audio monitoring application"
+          homepage "https://github.com/${GITHUB_REPOSITORY}"
+          url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/standby-x86_64-apple-darwin.tar.gz"
+          sha256 "${MACOS_X86_SHA}"
+          version "${VERSION}"
+
+          on_macos do
+            if Hardware::CPU.arm?
+              url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/standby-aarch64-apple-darwin.tar.gz"
+              sha256 "${MACOS_ARM_SHA}"
+            end
+          end
+
+          def install
+            bin.install "standby"
+          end
+
+          test do
+            system "#{bin}/standby", "--help"
+          end
+        end
+        EOF
+        )
+
+        echo "formula<<EOF" >> $GITHUB_OUTPUT
+        echo "$FORMULA" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+        # Save formula to file for inspection
+        echo "$FORMULA" > standby.rb
+
+    - name: Upload formula artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: homebrew-formula
+        path: standby.rb
+
+  update-tap:
+    name: Update Homebrew Tap
+    needs: generate-formula
+    runs-on: ubuntu-latest
+    if: github.event.repository.fork == false
+
+    steps:
+    - name: Checkout tap repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.repository }}-homebrew-tap
+        path: tap-repo
+        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+    - name: Download formula
+      uses: actions/download-artifact@v4
+      with:
+        name: homebrew-formula
+        path: tap-repo/Formula/
+
+    - name: Get version
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ inputs.tag_name }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Commit and push formula
+      run: |
+        cd tap-repo
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+
+        # Check if formula file exists and has changes
+        if [ -f "Formula/standby.rb" ]; then
+          git add Formula/standby.rb
+          if git diff --staged --quiet; then
+            echo "No changes to formula"
+          else
+            git commit -m "Update standby to ${{ steps.get_version.outputs.version }}"
+            git push
+          fi
+        else
+          echo "Formula file not found"
+          exit 1
+        fi
+
+  submit-core:
+    name: Submit to Homebrew Core
+    needs: generate-formula
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Checkout homebrew-core
+      uses: actions/checkout@v4
+      with:
+        repository: Homebrew/homebrew-core
+        path: homebrew-core
+
+    - name: Download formula
+      uses: actions/download-artifact@v4
+      with:
+        name: homebrew-formula
+        path: .
+
+    - name: Get version
+      id: get_version
+      run: |
+        VERSION="${GITHUB_REF#refs/tags/}"
+        CLEAN_VERSION="${VERSION#v}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "clean_version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Check if formula exists
+      id: check_formula
+      run: |
+        if [ -f "homebrew-core/Formula/s/standby.rb" ]; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Update existing formula
+      if: steps.check_formula.outputs.exists == 'true'
+      run: |
+        cp standby.rb homebrew-core/Formula/s/standby.rb
+        cd homebrew-core
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git checkout -b "standby-${{ steps.get_version.outputs.clean_version }}"
+        git add Formula/s/standby.rb
+        git commit -m "standby ${{ steps.get_version.outputs.version }}
+
+        Update standby to version ${{ steps.get_version.outputs.clean_version }}."
+
+    - name: Create new formula
+      if: steps.check_formula.outputs.exists == 'false'
+      run: |
+        cp standby.rb homebrew-core/Formula/s/standby.rb
+        cd homebrew-core
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git checkout -b "standby-${{ steps.get_version.outputs.clean_version }}"
+        git add Formula/s/standby.rb
+        git commit -m "standby ${{ steps.get_version.outputs.version }}
+
+        Terminal-based audio monitoring application.
+
+        Monitors audio input levels and detects when sound exceeds a threshold."
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        path: homebrew-core
+        token: ${{ secrets.HOMEBREW_CORE_TOKEN }}
+        branch: standby-${{ steps.get_version.outputs.clean_version }}
+        title: "standby ${{ steps.get_version.outputs.version }}"
+        body: |
+          ## standby ${{ steps.get_version.outputs.version }}
+
+          Terminal-based audio monitoring application that displays real-time audio levels and detects when sound exceeds a specified threshold.
+
+          ### Changes
+          - Update standby to version ${{ steps.get_version.outputs.clean_version }}
+
+          ### Formula
+          \`\`\`ruby
+          $(cat ../standby.rb)
+          \`\`\`
+
+          ---
+
+          Created by [GitHub Actions](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        commit-message: "standby ${{ steps.get_version.outputs.version }}"
+        author: "GitHub Actions <actions@github.com>"
+        delete-branch: true
