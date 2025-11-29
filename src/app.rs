@@ -21,6 +21,23 @@ pub struct App {
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
 }
 
+/// Exit codes for the application
+#[derive(Debug, Clone, Copy)]
+pub enum ExitCode {
+    Success = 0,
+    UserExit = 1,  // User pressed Escape or Ctrl+C
+    Error = 2,     // Actual application error
+}
+
+/// Result type that includes user exit information
+pub type AppRunResult = Result<(), AppError>;
+
+/// Extended result that tracks exit reason
+pub struct RunResult {
+    pub result: AppRunResult,
+    pub exit_code: ExitCode,
+}
+
 impl App {
     /// Initialize the application with configuration
     pub fn new() -> AppResult<Self> {
@@ -37,9 +54,15 @@ impl App {
     }
 
     /// Run the main application loop
-    pub async fn run(mut self) -> AppResult<()> {
+    pub async fn run(mut self) -> RunResult {
         // Setup audio
-        let (device, audio_config) = audio::setup_audio_device(self.config.device_name.clone())?;
+        let (device, audio_config) = match audio::setup_audio_device(self.config.device_name.clone()) {
+            Ok(result) => result,
+            Err(e) => return RunResult {
+                result: Err(e),
+                exit_code: ExitCode::Error,
+            },
+        };
         let device_name = audio_config.device_name;
 
         // Create shared state
@@ -64,17 +87,31 @@ impl App {
             buffer_size: crate::constants::audio::BUFFER_SIZE,
         };
 
-        let stream = audio::build_audio_stream(&device, &config, audio_callback)?;
-        stream.play()?;
+        let stream = match audio::build_audio_stream(&device, &config, audio_callback) {
+            Ok(stream) => stream,
+            Err(e) => return RunResult {
+                result: Err(e),
+                exit_code: ExitCode::Error,
+            },
+        };
+
+        if let Err(e) = stream.play() {
+            return RunResult {
+                result: Err(e.into()),
+                exit_code: ExitCode::Error,
+            };
+        }
 
         // Main UI loop
         let mut interval = tokio::time::interval(Duration::from_millis(crate::constants::ui::UPDATE_INTERVAL_MS));
+        let mut exit_reason = ExitCode::Success;
+
         loop {
             // Update state from shared values
             app_state.update_from_audio(&shared_state.current_db, &shared_state.smoothed_db, &shared_state.display_db, &shared_state.threshold_reached);
 
             // Render UI
-            self.terminal.draw(|f| {
+            if let Err(e) = self.terminal.draw(|f| {
                 let ui_state = ui::UiState {
                     device_name: app_state.device_name.clone(),
                     current_db: app_state.current_db,
@@ -83,10 +120,16 @@ impl App {
                     status: app_state.status.clone(),
                 };
                 ui::render_ui(f, &ui_state);
-            })?;
+            }) {
+                return RunResult {
+                    result: Err(e.into()),
+                    exit_code: ExitCode::Error,
+                };
+            }
 
             // Check if threshold reached
             if app_state.threshold_reached {
+                exit_reason = ExitCode::Success;
                 break;
             }
 
@@ -97,6 +140,7 @@ impl App {
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {
                     should_exit = true;
+                    exit_reason = ExitCode::UserExit;
                 }
                 _ = tokio::time::sleep(Duration::from_millis(1)) => {
                     // Timeout - check for keyboard events
@@ -104,14 +148,16 @@ impl App {
             }
 
             // Check for keyboard events (Escape to quit)
-            if !should_exit && crossterm::event::poll(Duration::from_millis(0))?
-                && let Event::Key(key_event) = crossterm::event::read()? {
+            if !should_exit && crossterm::event::poll(Duration::from_millis(0)).unwrap_or(false)
+                && let Ok(Event::Key(key_event)) = crossterm::event::read() {
                 match key_event.code {
                     KeyCode::Esc => {
                         should_exit = true;
+                        exit_reason = ExitCode::UserExit;
                     }
                     KeyCode::Char('c') if key_event.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
                         should_exit = true;
+                        exit_reason = ExitCode::UserExit;
                     }
                     _ => {}
                 }
@@ -125,11 +171,14 @@ impl App {
             interval.tick().await;
         }
 
-        // Cleanup
+        // Cleanup - ensure graceful exit
         drop(stream);
-        self.cleanup()?;
+        let _ = self.cleanup(); // Ignore cleanup errors
 
-        Ok(())
+        RunResult {
+            result: Ok(()),
+            exit_code: exit_reason,
+        }
     }
 
     /// Clean up terminal state
