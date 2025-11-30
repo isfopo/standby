@@ -22,18 +22,18 @@ jobs:
     strategy:
       matrix:
         include:
-           - os: macos-latest
-             target: x86_64-apple-darwin
-             name: soundcheck-x86_64-apple-darwin.tar.gz
-           - os: macos-latest
-             target: aarch64-apple-darwin
-             name: soundcheck-aarch64-apple-darwin.tar.gz
-           - os: ubuntu-latest
-             target: x86_64-unknown-linux-gnu
-             name: soundcheck-x86_64-unknown-linux-gnu.tar.gz
-           - os: windows-latest
-             target: x86_64-pc-windows-msvc
-             name: soundcheck-x86_64-pc-windows-msvc.zip
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: soundcheck-x86_64-apple-darwin.tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: soundcheck-aarch64-apple-darwin.tar.gz
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: soundcheck-x86_64-unknown-linux-gnu.tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: soundcheck-x86_64-pc-windows-msvc.zip
 
     steps:
       - name: Checkout code
@@ -56,19 +56,19 @@ jobs:
       - name: Build release
         run: cargo build --release --target ${{ matrix.target }}
 
-       - name: Package binary (Unix)
-         if: matrix.os != 'windows-latest'
-         run: |
-           cd target/${{ matrix.target }}/release
-           tar -czf ../../../${{ matrix.name }} soundcheck
-           cd ../../..
+      - name: Package binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar -czf ../../../${{ matrix.name }} soundcheck
+          cd ../../..
 
-       - name: Package binary (Windows)
-         if: matrix.os == 'windows-latest'
-         run: |
-           cd target/${{ matrix.target }}/release
-           7z a ../../../${{ matrix.name }} soundcheck.exe
-           cd ../../..
+      - name: Package binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          7z a ../../../${{ matrix.name }} soundcheck.exe
+          cd ../../..
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
