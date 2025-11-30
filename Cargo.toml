@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 repository = "https://github.com/isfopo/standby"
 license = "MIT"
+description = "A terminal-based audio monitoring application that displays real-time audio levels and exits when sound exceeds a specified threshold."
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
