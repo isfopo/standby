@@ -172,15 +172,15 @@ jobs:
         run: |
           sed -i 's|^version = ".*"|version = "${{ steps.get_version.outputs.clean_version }}"|' Cargo.toml
 
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
       - name: Commit version change
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add .
           git commit -m "Release version ${{ steps.get_version.outputs.version }}"
-
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
 
       - name: Verify crate can be published
         run: cargo publish --dry-run
