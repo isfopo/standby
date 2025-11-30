@@ -165,7 +165,7 @@ jobs:
 
       - name: Update Cargo.toml version
         run: |
-          sed -i "s/^version = \".*\"/version = \"${{ steps.get_version.outputs.clean_version }}\"/" Cargo.toml
+          sed -i 's|^version = ".*"|version = "${{ steps.get_version.outputs.clean_version }}"|' Cargo.toml
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
