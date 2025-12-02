@@ -199,7 +199,7 @@ jobs:
       - name: Trigger Homebrew workflow
         run: |
           curl -X POST \
-          -H "Authorization: token ${{ secrets.TAP_REPO_TOKEN }}" \
+          -H "Authorization: token ${{ secrets.HOMEBREW_TAP_TOKEN }}" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/isfopo/homebrew-tap/dispatches \
           -d '{
