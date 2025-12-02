@@ -205,7 +205,7 @@ jobs:
           -d '{
             "event_type": "homebrew-release",
             "client_payload": {
-              "version": "${{ github.ref_name }}",
+              "version": "${{ github.event.inputs.tag_name }}",
               "repo": "${{ github.repository }}",
               "run_id": "${{ github.run_id }}"
             }
