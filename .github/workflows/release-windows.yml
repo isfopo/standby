@@ -236,4 +236,4 @@ jobs:
       - name: Publish to Chocolatey
         shell: pwsh
         run: |
-          choco push "soundcheck.${{ steps.get_version.outputs.version }}.nupkg" --api-key "${{ secrets.CHOCOLATEY_API_KEY }}"
+          choco push "soundcheck.${{ steps.get_version.outputs.version }}.nupkg" --api-key "${{ secrets.CHOCOLATEY_API_KEY }}" --source="'https://push.chocolatey.org/'"
