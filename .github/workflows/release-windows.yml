@@ -99,7 +99,7 @@ jobs:
           TAG=$(curl -s "${{ github.event.workflow_run.artifacts_url }}" | jq -r '.artifacts[0].name' | sed 's/binaries-.*//')
           if [ -z "$TAG" ]; then
             # Fallback: get latest tag
-            TAG=$(curl -s "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest" | jq -r '.tag_name')
+            TAG=$(curl -s "https://api.github.com/repos/${env:GITHUB_REPOSITORY}/releases/latest" | jq -r '.tag_name')
           fi
           CLEAN_VERSION="${TAG#v}"
           echo "version=$TAG" >> $GITHUB_OUTPUT
@@ -136,17 +136,19 @@ jobs:
           \$checksumType64 = 'sha256'
 
           Install-ChocolateyZipPackage -PackageName 'soundcheck' -Url64bit \$url64 -UnzipLocation \$packageDir -Checksum64 \$checksum64 -ChecksumType64 \$checksumType64
-          "@ | Out-File -FilePath "choco/soundcheck/tools/chocolateyinstall.ps1" -Encoding UTF8
+           "@ | Out-File -FilePath "choco/soundcheck/tools/chocolateyinstall.ps1" -Encoding UTF8
 
-          # Create soundcheck.nuspec
+           $repoOwner = '${{ github.repository_owner }}'
+
+           # Create soundcheck.nuspec
           @"
           <?xml version="1.0" encoding="utf-8"?>
           <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
-            <metadata>
+          <metadata>
               <id>soundcheck</id>
               <version>${{ steps.get_version.outputs.clean_version }}</version>
               <title>Soundcheck</title>
-              <authors>${GITHUB_REPOSITORY_OWNER}</authors>
+               <authors>$repoOwner</authors>
               <description xml:space="preserve">Terminal-based audio monitoring application that displays real-time audio levels and detects when sound exceeds a specified threshold.</description>
               <projectUrl>https://github.com/${env:GITHUB_REPOSITORY}</projectUrl>
               <licenseUrl>https://github.com/${env:GITHUB_REPOSITORY}/blob/main/LICENSE</licenseUrl>
@@ -163,7 +165,7 @@ jobs:
       - name: Pack Chocolatey package
         shell: pwsh
         run: |
-          choco pack "choco/soundcheck/soundcheck.nuspec" --outputdirectory "."
+          choco pack --version ${{ steps.get_version.outputs.version }} "choco/soundcheck/soundcheck.nuspec" --outputdirectory "."
 
       - name: Upload Chocolatey package
         uses: actions/upload-artifact@v4
