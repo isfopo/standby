@@ -215,6 +215,7 @@ jobs:
     name: Trigger Scoop Release
     needs: create-release
     runs-on: ubuntu-latest
+    if: github.event.repository.fork == false
     steps:
       - name: Trigger Scoop workflow
         run: |
@@ -224,7 +225,7 @@ jobs:
             -H "Content-Type: application/json" \
             https://api.github.com/repos/isfopo/scoop-bucket/dispatches \
             -d '{
-              "event_type": "scoop-update",
+              "event_type": "scoop-release",
               "client_payload": {
                 "version": "${{ github.event.inputs.tag_name }}",
                 "repo": "${{ github.event.repository.name }}",
