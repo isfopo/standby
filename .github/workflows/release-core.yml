@@ -233,3 +233,25 @@ jobs:
                 "run_id": "${{ github.run_id }}"
               }
             }'
+
+  create-choco-package:
+    name: Create Chocolatey Package
+    runs-on: windows-latest
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from workflow run
+        id: get_version
+        shell: bash
+        run: |
+          # Get the tag from the triggering workflow
+          TAG=$(curl -s "${{ github.event.workflow_run.artifacts_url }}" | jq -r '.artifacts[0].name' | sed 's/binaries-.*//')
+          if [ -z "$TAG" ]; then
+            # Fallback: get latest tag
+            TAG=$(curl -s "https://api.github.com/repos/${{ github.event.repository.name }}/releases/latest" | jq -r '.tag_name')
+          fi
+          CLEAN_VERSION="${TAG#v}"
+          echo "version=$TAG" >> $GITHUB_OUTPUT
