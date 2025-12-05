@@ -190,6 +190,106 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
+  create-choco-package:
+    name: Create Chocolatey Package
+    runs-on: windows-latest
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Windows binary
+        shell: bash
+        run: |
+          curl -L -o ${{ github.event.repository.name }}.zip "https://github.com/${{ github.event.repository.name }}/releases/download/${{ inputs.tag_name }}/${{ github.event.repository.name }}-x86_64-pc-windows-msvc.zip"
+          unzip ${{ github.event.repository.name }}.zip
+
+      - name: Calculate SHA256
+        id: sha256
+        shell: bash
+        run: |
+          HASH=$(sha256sum ${{ github.event.repository.name }}.exe | awk '{print $1}')
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
+
+      - name: Create Chocolatey package structure
+        shell: bash
+        run: |
+          # Create directory structure
+          mkdir -p choco/${{ github.event.repository.name }}/tools
+
+          # Create chocolateyinstall.ps1
+          cat <<EOF > choco/${{ github.event.repository.name }}/tools/chocolateyinstall.ps1
+          \$ErrorActionPreference = 'Stop'
+
+          \$toolsDir = Split-Path -Parent \$MyInvocation.MyCommand.Definition
+          \$packageDir = Split-Path -Parent \$toolsDir
+
+          \$url64 = 'https://github.com/${{ github.event.repository.name }}/releases/download/${{ github.event.inputs.tag_name }}/${{ github.event.repository.name }}-x86_64-pc-windows-msvc.zip'
+          \$checksum64 = '${{ steps.sha256.outputs.hash }}'
+          \$checksumType64 = 'sha256'
+
+          Install-ChocolateyZipPackage -PackageName '${{ github.event.repository.name }}' -Url64bit \$url64 -UnzipLocation \$packageDir -Checksum64 \$checksum64 -ChecksumType64 \$checksumType64
+          EOF
+
+          # Create ${{ github.event.repository.name }}.nuspec
+          cat <<EOF > choco/${{ github.event.repository.name }}/${{ github.event.repository.name }}.nuspec
+          <?xml version="1.0" encoding="utf-8"?>
+          <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+          <metadata>
+              <id>${{ github.event.repository.name }}</id>
+              <version>${{ github.event.inputs.tag_name }}</version>
+              <title>${{ github.event.repository.name }}</title>
+              <authors>${{ github.event.repository.name_owner }}</authors>
+              <description xml:space="preserve">Terminal-based audio monitoring application that displays real-time audio levels and detects when sound exceeds a specified threshold.</description>
+              <projectUrl>https://github.com/${{ github.event.repository.name }}</projectUrl>
+              <licenseUrl>https://github.com/${{ github.event.repository.name }}/blob/main/LICENSE</licenseUrl>
+              <requireLicenseAcceptance>false</requireLicenseAcceptance>
+              <tags>audio monitoring terminal cli rust</tags>
+              <releaseNotes>https://github.com/${{ github.event.repository.name }}/releases/tag/${{ github.event.inputs.tag_name }}</releaseNotes>
+            </metadata>
+            <files>
+              <file src="tools\**" target="tools" />
+            </files>
+          </package>
+          EOF
+
+      - name: Pack Chocolatey package
+        shell: pwsh
+        run: |
+          choco pack --version ${{ github.event.inputs.tag_name }} "choco/${{ github.event.repository.name }}/.${{ github.event.repository.name }}.nuspec" --outputdirectory "."
+
+      - name: Upload Chocolatey package
+        uses: actions/upload-artifact@v4
+        with:
+          name: choco-package
+          path: ${{ github.event.repository.name }}.${{ github.event.inputs.tag_name }}.nupkg
+
+  publish-choco:
+    name: Publish to Chocolatey
+    needs: create-choco-package
+    runs-on: windows-latest
+    if: github.event.repository.fork == false
+
+    steps:
+      - name: Download Chocolatey package
+        uses: actions/download-artifact@v4
+        with:
+          name: choco-package
+          path: .
+
+      - name: Get version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(ls ${{ github.event.repository.name }}.*.nupkg | sed 's/s${{ github.event.repository.name }}\.\(.*\)\.nupkg/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Publish to Chocolatey
+        shell: pwsh
+        run: |
+          choco push "${{ github.event.repository.name }}.${{ github.event.inputs.tag_name }}.nupkg" --api-key "${{ secrets.CHOCOLATEY_API_KEY }}" --source="'https://push.chocolatey.org/'"
+
   trigger-homebrew:
     name: Trigger Homebrew Release
     needs: create-release
