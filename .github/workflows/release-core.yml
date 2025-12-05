@@ -211,7 +211,7 @@ jobs:
         id: sha256
         shell: bash
         run: |
-          HASH=$(sha256sum ${{ github.event.repository.name }}.exe | awk '{print $1}')
+          HASH=$(sha256sum ${{ github.event.repository.name }}.zip | awk '{print $1}')
           echo "hash=$HASH" >> $GITHUB_OUTPUT
 
       - name: Create Chocolatey package structure
