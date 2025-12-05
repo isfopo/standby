@@ -195,6 +195,7 @@ jobs:
     needs: create-release
     runs-on: windows-latest
     if: github.event.workflow_run.conclusion == 'success'
+    environment: choco
 
     steps:
       - name: Checkout code
