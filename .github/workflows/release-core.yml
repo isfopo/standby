@@ -193,7 +193,9 @@ jobs:
   create-choco-package:
     name: Create Chocolatey Package
     runs-on: windows-latest
-    if: github.event.workflow_run.conclusion == 'success'
+    needs: create-release
+    environment: choco
+    if: github.event.repository.fork == false
 
     steps:
       - name: Checkout code
@@ -295,6 +297,7 @@ jobs:
     needs: create-release
     runs-on: ubuntu-latest
     if: github.event.repository.fork == false
+
     steps:
       - name: Trigger Homebrew workflow
         run: |
@@ -316,6 +319,7 @@ jobs:
     needs: create-release
     runs-on: ubuntu-latest
     if: github.event.repository.fork == false
+
     steps:
       - name: Trigger Scoop workflow
         run: |
