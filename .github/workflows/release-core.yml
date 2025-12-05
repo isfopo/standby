@@ -227,8 +227,9 @@ jobs:
             -d '{
               "event_type": "scoop-release",
               "client_payload": {
-                "version": "${{ github.event.inputs.tag_name }}",
+                "owner": "${{ github.event.repository.owner.login }}",
                 "repo": "${{ github.event.repository.name }}",
+                "version": "${{ github.event.inputs.tag_name }}",
                 "run_id": "${{ github.run_id }}"
               }
             }'
