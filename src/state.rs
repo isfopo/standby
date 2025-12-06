@@ -24,7 +24,7 @@ pub struct AppState {
 impl AppState {
     /// Create a new application state with default values
     pub fn new(device_name: String, threshold_db: i32, num_channels: usize) -> Self {
-        let default_db = crate::constants::audio::MIN_DB_LEVEL;
+        let default_db = crate::constants::audio::MIN_DB_LEVEL as f32;
         Self {
             device_name: device_name.clone(),
             current_db: vec![default_db; num_channels],
@@ -65,7 +65,7 @@ pub struct SharedState {
 impl SharedState {
     /// Create new shared state with default values
     pub fn new(num_channels: usize) -> Self {
-        let default_db = crate::constants::audio::MIN_DB_LEVEL;
+        let default_db = crate::constants::audio::MIN_DB_LEVEL as f32;
         Self {
             current_db: Arc::new(Mutex::new(vec![default_db; num_channels])),
             smoothed_db: Arc::new(Mutex::new(vec![default_db; num_channels])),

@@ -1,11 +1,11 @@
 //! UI rendering and layout utilities
 
 use ratatui::{
-    Frame,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
+    Frame,
 };
 
 /// Application state for UI rendering
@@ -15,7 +15,7 @@ pub struct UiState {
     pub current_db: Vec<f32>,
     pub display_db: Vec<f32>,
     pub threshold_db: i32,
-    pub min_db: f32,
+    pub min_db: i32,
     pub status: String,
 }
 
@@ -147,7 +147,7 @@ pub fn render_ui(f: &mut Frame, state: &UiState) {
     f.render_widget(threshold_text, chunks[2]);
 
     // dB bar with labels
-    let min_db = state.min_db;
+    let min_db = state.min_db as f32;
     let db_range = -min_db; // Range from min_db to 0
     let num_channels = state.display_db.len();
 

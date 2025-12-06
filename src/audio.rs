@@ -117,7 +117,7 @@ pub fn create_audio_callback(
             let current_db_value = if max_sample > 0.0 {
                 20.0 * max_sample.log10()
             } else {
-                crate::constants::audio::MIN_DB_LEVEL
+                crate::constants::audio::MIN_DB_LEVEL as f32
             };
 
             // Update current dB

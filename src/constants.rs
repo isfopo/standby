@@ -3,7 +3,7 @@
 /// Audio processing constants
 pub mod audio {
     /// Minimum dB level
-    pub const MIN_DB_LEVEL: f32 = -60.0;
+    pub const MIN_DB_LEVEL: i32 = -60;
     /// Default threshold dB level
     pub const DEFAULT_THRESHOLD_DB: i32 = 0;
     /// Buffer size for audio streams

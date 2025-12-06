@@ -13,7 +13,7 @@ pub struct Args {
 
     /// Minimum dB level for display (e.g., -60)
     #[arg(long, default_value_t = crate::constants::audio::MIN_DB_LEVEL)]
-    pub min_db: f32,
+    pub min_db: i32,
 
     /// Audio input device name (optional, uses default if not specified)
     #[arg(long)]
@@ -27,7 +27,7 @@ pub struct Args {
 /// Application configuration derived from command line arguments
 pub struct Config {
     pub threshold_db: i32,
-    pub min_db: f32,
+    pub min_db: i32,
     pub channels: Vec<usize>,
     pub device_name: Option<String>,
 }
@@ -47,9 +47,9 @@ impl Config {
         }
 
         // Validate min_db range
-        if args.min_db >= 0.0 || args.min_db < -100.0 {
+        if args.min_db >= args.threshold || args.min_db < -100 {
             return Err(format!(
-                "Minimum dB must be between -100 and 0 dB, got {}",
+                "Minimum dB must be between -100 and and threshold, got {}",
                 args.min_db
             )
             .into());
@@ -79,7 +79,7 @@ mod tests {
         // For now, we'll test the validation logic manually
         let config = Config {
             threshold_db: 0,
-            min_db: -60.0,
+            min_db: -60,
             channels: vec![0],
             device_name: Some("test_device".to_string()),
         };
@@ -93,7 +93,7 @@ mod tests {
     fn test_db_to_linear_conversion() {
         let config = Config {
             threshold_db: 0,
-            min_db: -60.0,
+            min_db: -60,
             device_name: None,
             channels: vec![0],
         };
@@ -102,7 +102,7 @@ mod tests {
 
         let config = Config {
             threshold_db: -20,
-            min_db: -60.0,
+            min_db: -60,
             device_name: Some("test_device".to_string()),
             channels: vec![0],
         };
