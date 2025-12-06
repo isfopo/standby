@@ -28,10 +28,30 @@ pub fn setup_audio_device(device_name: Option<String>) -> AppResult<(cpal::Devic
 
     let device_name = device.name()?;
 
+    // Get supported input configs and determine sample rate from device
+    let mut supported_configs = device.supported_input_configs()?;
+    let config_range = supported_configs
+        .next()
+        .ok_or_else(|| AppError::AudioDevice("No supported input configs found".to_string()))?;
+
+    // Use the minimum sample rate as default, or a common rate if available
+    let sample_rate = if config_range.min_sample_rate().0 <= 44100 && config_range.max_sample_rate().0 >= 44100 {
+        44100 // Prefer 44.1kHz if supported
+    } else {
+        config_range.min_sample_rate().0 // Otherwise use minimum supported
+    };
+
+    // Ensure channels are supported
+    let channels = if config_range.channels() >= crate::constants::audio::DEFAULT_CHANNELS {
+        crate::constants::audio::DEFAULT_CHANNELS
+    } else {
+        config_range.channels()
+    };
+
     let audio_config = AudioConfig {
         device_name,
-        sample_rate: crate::constants::audio::DEFAULT_SAMPLE_RATE,
-        channels: crate::constants::audio::DEFAULT_CHANNELS,
+        sample_rate,
+        channels,
     };
 
     Ok((device, audio_config))

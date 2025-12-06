@@ -2,10 +2,8 @@
 
 /// Audio processing constants
 pub mod audio {
-    /// Default sample rate for audio processing
-    pub const DEFAULT_SAMPLE_RATE: u32 = 44100;
     /// Default number of channels (mono)
-    pub const DEFAULT_CHANNELS: u16 = 1;
+    pub const DEFAULT_CHANNELS: u16 = 2;
     /// Minimum dB level
     pub const MIN_DB_LEVEL: f32 = -60.0;
     /// Default threshold dB level

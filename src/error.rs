@@ -53,6 +53,12 @@ impl From<cpal::DefaultStreamConfigError> for AppError {
     }
 }
 
+impl From<cpal::SupportedStreamConfigsError> for AppError {
+    fn from(err: cpal::SupportedStreamConfigsError) -> Self {
+        AppError::AudioDevice(format!("Failed to get supported stream configs: {}", err))
+    }
+}
+
 impl From<cpal::BuildStreamError> for AppError {
     fn from(err: cpal::BuildStreamError) -> Self {
         AppError::AudioStream(format!("Failed to build audio stream: {}", err))
