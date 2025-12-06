@@ -129,6 +129,7 @@ impl App {
                     current_db: app_state.current_db,
                     display_db: app_state.display_db,
                     threshold_db: app_state.threshold_db,
+                    min_db: self.config.min_db,
                     status: app_state.status.clone(),
                 };
                 ui::render_ui(f, &ui_state);

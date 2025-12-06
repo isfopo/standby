@@ -15,6 +15,7 @@ pub struct UiState {
     pub current_db: f32,
     pub display_db: f32,
     pub threshold_db: i32,
+    pub min_db: f32,
     pub status: String,
 }
 
@@ -57,11 +58,12 @@ pub fn create_gradient_bar(width: usize, ratio: f64) -> Line<'static> {
 }
 
 /// Create dB level labels with threshold indicator
-pub fn create_db_labels(width: usize, threshold_db: i32) -> Line<'static> {
+pub fn create_db_labels(width: usize, threshold_db: i32, min_db: f32) -> Line<'static> {
     let mut spans = Vec::new();
 
-    // Calculate threshold position (threshold_db ranges from -60 to 0)
-    let threshold_ratio = ((threshold_db as f64 + 60.0) / 60.0).clamp(0.0, 1.0);
+    // Calculate threshold position (threshold_db ranges from min_db to 0)
+    let db_range = -min_db; // Range from min_db to 0
+    let threshold_ratio = ((threshold_db as f32 - min_db) / db_range).clamp(0.0, 1.0) as f64;
     let threshold_pos = (threshold_ratio * (width - 1) as f64).round() as usize;
 
     for i in 0..width {
@@ -77,17 +79,19 @@ pub fn create_db_labels(width: usize, threshold_db: i32) -> Line<'static> {
 
         // Calculate which label to show at this position
         let label = if i == 0 {
-            // Always show -60 at the start
-            "-60".to_string()
+            // Show min_db at the start
+            format!("{:.0}", min_db)
         } else if i == width - 1 {
             // Always show 0 at the end
             "0".to_string()
         } else if i == width / 3 {
-            // Show -40 at 1/3 position
-            "-40".to_string()
+            // Show 1/3 position label
+            let third_db = min_db + (-min_db) / 3.0;
+            format!("{:.0}", third_db)
         } else if i == 2 * width / 3 {
-            // Show -20 at 2/3 position
-            "-20".to_string()
+            // Show 2/3 position label
+            let two_third_db = min_db + 2.0 * (-min_db) / 3.0;
+            format!("{:.0}", two_third_db)
         } else {
             // No label at this position
             " ".to_string()
@@ -143,13 +147,13 @@ pub fn render_ui(f: &mut Frame, state: &UiState) {
     f.render_widget(threshold_text, chunks[2]);
 
     // dB bar with labels
-    let min_db = crate::constants::audio::MIN_DB_LEVEL;
-    let db_range = -min_db; // Range from MIN_DB_LEVEL to 0
+    let min_db = state.min_db;
+    let db_range = -min_db; // Range from min_db to 0
     let db_ratio = ((state.display_db - min_db) / db_range).clamp(0.0, 1.0) as f64;
     let bar_width =
         (chunks[3].width as usize).saturating_sub(crate::constants::ui::BAR_BORDER_WIDTH);
     let bar_line = create_gradient_bar(bar_width, db_ratio);
-    let label_line = create_db_labels(bar_width, state.threshold_db);
+    let label_line = create_db_labels(bar_width, state.threshold_db, min_db);
     let gauge = Paragraph::new(vec![bar_line, label_line]).block(
         Block::default()
             .title(format!(

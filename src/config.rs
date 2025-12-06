@@ -11,6 +11,10 @@ pub struct Args {
     #[arg(long, default_value_t = crate::constants::audio::DEFAULT_THRESHOLD_DB)]
     pub threshold: i32,
 
+    /// Minimum dB level for display (e.g., -60)
+    #[arg(long, default_value_t = crate::constants::audio::MIN_DB_LEVEL)]
+    pub min_db: f32,
+
     /// Audio input device name (optional, uses default if not specified)
     #[arg(long)]
     pub device: Option<String>,
@@ -19,6 +23,7 @@ pub struct Args {
 /// Application configuration derived from command line arguments
 pub struct Config {
     pub threshold_db: i32,
+    pub min_db: f32,
     pub device_name: Option<String>,
 }
 
@@ -36,8 +41,18 @@ impl Config {
             .into());
         }
 
+        // Validate min_db range
+        if args.min_db >= 0.0 || args.min_db < -100.0 {
+            return Err(format!(
+                "Minimum dB must be between -100 and 0 dB, got {}",
+                args.min_db
+            )
+            .into());
+        }
+
         Ok(Config {
             threshold_db: args.threshold,
+            min_db: args.min_db,
             device_name: args.device,
         })
     }
@@ -58,6 +73,7 @@ mod tests {
         // For now, we'll test the validation logic manually
         let config = Config {
             threshold_db: 0,
+            min_db: -60.0,
             device_name: Some("test_device".to_string()),
         };
 
@@ -77,7 +93,8 @@ mod tests {
 
         let config = Config {
             threshold_db: -20,
-            device_name: None,
+            min_db: -60.0,
+            device_name: Some("test_device".to_string()),
         };
         // -20 dB should convert to amplitude of ~0.1
         assert!((config.linear_threshold() - 0.1).abs() < 0.01);
