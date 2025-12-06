@@ -18,12 +18,17 @@ pub struct Args {
     /// Audio input device name (optional, uses default if not specified)
     #[arg(long)]
     pub device: Option<String>,
+
+    /// Audio channels to monitor (comma-separated indices, e.g., "0,1")
+    #[arg(long, value_delimiter = ',', default_values_t = vec![0usize])]
+    pub channels: Vec<usize>,
 }
 
 /// Application configuration derived from command line arguments
 pub struct Config {
     pub threshold_db: i32,
     pub min_db: f32,
+    pub channels: Vec<usize>,
     pub device_name: Option<String>,
 }
 
@@ -53,6 +58,7 @@ impl Config {
         Ok(Config {
             threshold_db: args.threshold,
             min_db: args.min_db,
+            channels: args.channels,
             device_name: args.device,
         })
     }
@@ -74,6 +80,7 @@ mod tests {
         let config = Config {
             threshold_db: 0,
             min_db: -60.0,
+            channels: vec![0],
             device_name: Some("test_device".to_string()),
         };
 

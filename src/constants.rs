@@ -2,8 +2,6 @@
 
 /// Audio processing constants
 pub mod audio {
-    /// Default number of channels (mono)
-    pub const DEFAULT_CHANNELS: u16 = 1;
     /// Minimum dB level
     pub const MIN_DB_LEVEL: f32 = -60.0;
     /// Default threshold dB level

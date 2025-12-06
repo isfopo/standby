@@ -57,7 +57,7 @@ impl App {
     pub async fn run(mut self) -> RunResult {
         // Setup audio
         let (device, audio_config) =
-            match audio::setup_audio_device(self.config.device_name.clone()) {
+            match audio::setup_audio_device(self.config.device_name.clone(), &self.config.channels) {
                 Ok(result) => result,
                 Err(e) => {
                     return RunResult {
@@ -69,11 +69,11 @@ impl App {
         let device_name = audio_config.device_name;
 
         // Create shared state
-        let shared_state = SharedState::new();
+        let shared_state = SharedState::new(self.config.channels.len());
         let (current_db, smoothed_db, display_db, threshold_reached) = shared_state.audio_refs();
 
         // Create app state
-        let mut app_state = AppState::new(device_name, self.config.threshold_db);
+        let mut app_state = AppState::new(device_name, self.config.threshold_db, self.config.channels.len());
 
         // Build audio stream
         let audio_callback = audio::create_audio_callback(
@@ -82,6 +82,8 @@ impl App {
             display_db,
             threshold_reached,
             self.config.linear_threshold(),
+            &audio_config.selected_channels,
+            audio_config.channels as usize,
         );
 
         let config = cpal::StreamConfig {
@@ -126,8 +128,8 @@ impl App {
             if let Err(e) = self.terminal.draw(|f| {
                 let ui_state = ui::UiState {
                     device_name: app_state.device_name.clone(),
-                    current_db: app_state.current_db,
-                    display_db: app_state.display_db,
+                    current_db: app_state.current_db.clone(),
+                    display_db: app_state.display_db.clone(),
                     threshold_db: app_state.threshold_db,
                     min_db: self.config.min_db,
                     status: app_state.status.clone(),
@@ -140,8 +142,8 @@ impl App {
                 };
             }
 
-            // Check if threshold reached
-            if app_state.threshold_reached {
+            // Check if threshold reached on any channel
+            if app_state.threshold_reached.iter().any(|&r| r) {
                 exit_reason = ExitCode::Success;
                 break;
             }

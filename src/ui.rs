@@ -12,8 +12,8 @@ use ratatui::{
 #[derive(Clone)]
 pub struct UiState {
     pub device_name: String,
-    pub current_db: f32,
-    pub display_db: f32,
+    pub current_db: Vec<f32>,
+    pub display_db: Vec<f32>,
     pub threshold_db: i32,
     pub min_db: f32,
     pub status: String,
@@ -149,18 +149,48 @@ pub fn render_ui(f: &mut Frame, state: &UiState) {
     // dB bar with labels
     let min_db = state.min_db;
     let db_range = -min_db; // Range from min_db to 0
-    let db_ratio = ((state.display_db - min_db) / db_range).clamp(0.0, 1.0) as f64;
-    let bar_width =
-        (chunks[3].width as usize).saturating_sub(crate::constants::ui::BAR_BORDER_WIDTH);
-    let bar_line = create_gradient_bar(bar_width, db_ratio);
-    let label_line = create_db_labels(bar_width, state.threshold_db, min_db);
-    let gauge = Paragraph::new(vec![bar_line, label_line]).block(
-        Block::default()
-            .title(format!(
-                "Current dB: {:.1} (Raw: {:.1})",
-                state.display_db, state.current_db
-            ))
-            .borders(Borders::ALL),
-    );
-    f.render_widget(gauge, chunks[3]);
+    let num_channels = state.display_db.len();
+
+    if num_channels == 1 {
+        let db_ratio = ((state.display_db[0] - min_db) / db_range).clamp(0.0, 1.0) as f64;
+        let bar_width =
+            (chunks[3].width as usize).saturating_sub(crate::constants::ui::BAR_BORDER_WIDTH);
+        let bar_line = create_gradient_bar(bar_width, db_ratio);
+        let label_line = create_db_labels(bar_width, state.threshold_db, min_db);
+        let gauge = Paragraph::new(vec![bar_line, label_line]).block(
+            Block::default()
+                .title(format!(
+                    "Current dB: {:.1} (Raw: {:.1})",
+                    state.display_db[0], state.current_db[0]
+                ))
+                .borders(Borders::ALL),
+        );
+        f.render_widget(gauge, chunks[3]);
+    } else {
+        // For multiple channels, split the area into sub-chunks
+        let constraints: Vec<Constraint> = (0..num_channels)
+            .map(|_| Constraint::Ratio(1, num_channels as u32))
+            .collect();
+        let channel_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(constraints)
+            .split(chunks[3]);
+
+        for (i, chunk) in channel_chunks.iter().enumerate() {
+            let db_ratio = ((state.display_db[i] - min_db) / db_range).clamp(0.0, 1.0) as f64;
+            let bar_width =
+                (chunk.width as usize).saturating_sub(crate::constants::ui::BAR_BORDER_WIDTH);
+            let bar_line = create_gradient_bar(bar_width, db_ratio);
+            let label_line = create_db_labels(bar_width, state.threshold_db, min_db);
+            let gauge = Paragraph::new(vec![bar_line, label_line]).block(
+                Block::default()
+                    .title(format!(
+                        "Channel {}: {:.1} dB (Raw: {:.1})",
+                        i, state.display_db[i], state.current_db[i]
+                    ))
+                    .borders(Borders::ALL),
+            );
+            f.render_widget(gauge, *chunk);
+        }
+    }
 }

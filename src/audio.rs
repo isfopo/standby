@@ -9,10 +9,11 @@ pub struct AudioConfig {
     pub device_name: String,
     pub sample_rate: u32,
     pub channels: u16,
+    pub selected_channels: Vec<usize>,
 }
 
 /// Find and configure an audio input device
-pub fn setup_audio_device(device_name: Option<String>) -> AppResult<(cpal::Device, AudioConfig)> {
+pub fn setup_audio_device(device_name: Option<String>, channels: &[usize]) -> AppResult<(cpal::Device, AudioConfig)> {
     // Setup audio
     let host = cpal::default_host();
 
@@ -28,7 +29,7 @@ pub fn setup_audio_device(device_name: Option<String>) -> AppResult<(cpal::Devic
 
     let device_name = device.name()?;
 
-    // Get supported input configs and determine sample rate from device
+    // Get supported input configs and determine sample rate and channels from device
     let mut supported_configs = device.supported_input_configs()?;
     let config_range = supported_configs
         .next()
@@ -41,17 +42,22 @@ pub fn setup_audio_device(device_name: Option<String>) -> AppResult<(cpal::Devic
         config_range.min_sample_rate().0 // Otherwise use minimum supported
     };
 
-    // Ensure channels are supported
-    let channels = if config_range.channels() >= crate::constants::audio::DEFAULT_CHANNELS {
-        crate::constants::audio::DEFAULT_CHANNELS
-    } else {
-        config_range.channels()
-    };
+    // Validate selected channels
+    let max_supported_channels = config_range.channels() as usize;
+    for &ch in channels {
+        if ch >= max_supported_channels {
+            return Err(AppError::AudioDevice(format!(
+                "Channel {} not supported by device config (max {})",
+                ch, max_supported_channels - 1
+            )));
+        }
+    }
 
     let audio_config = AudioConfig {
         device_name,
         sample_rate,
-        channels,
+        channels: config_range.channels(),
+        selected_channels: channels.to_vec(),
     };
 
     Ok((device, audio_config))
@@ -78,38 +84,46 @@ where
 
 /// Audio processing callback that updates shared state
 pub fn create_audio_callback(
-    current_db: Arc<Mutex<f32>>,
-    smoothed_db: Arc<Mutex<f32>>,
-    display_db: Arc<Mutex<f32>>,
-    threshold_reached: Arc<Mutex<bool>>,
+    current_db: Arc<Mutex<Vec<f32>>>,
+    smoothed_db: Arc<Mutex<Vec<f32>>>,
+    display_db: Arc<Mutex<Vec<f32>>>,
+    threshold_reached: Arc<Mutex<Vec<bool>>>,
     linear_threshold: f32,
+    selected_channels: &[usize],
+    total_channels: usize,
 ) -> impl FnMut(&[f32], &cpal::InputCallbackInfo) + Send + 'static {
+    let selected_channels = selected_channels.to_vec();
     move |data: &[f32], _: &cpal::InputCallbackInfo| {
-        let max_sample = data.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
-        let current_db_value = if max_sample > 0.0 {
-            20.0 * max_sample.log10()
-        } else {
-            -60.0
-        };
+        let mut current_db_vec = current_db.lock().unwrap();
+        let mut smoothed_vec = smoothed_db.lock().unwrap();
+        let mut display_vec = display_db.lock().unwrap();
+        let mut threshold_vec = threshold_reached.lock().unwrap();
 
-        // Update current dB
-        *current_db.lock().unwrap() = current_db_value;
+        for (i, &ch) in selected_channels.iter().enumerate() {
+            // Extract samples for this channel
+            let channel_samples: Vec<f32> = data.iter().skip(ch).step_by(total_channels).map(|&s| s.abs()).collect();
+            let max_sample = channel_samples.iter().fold(0.0f32, |a, &b| a.max(b));
 
-        // Apply smoothing
-        let mut smoothed = smoothed_db.lock().unwrap();
-        let mut display = display_db.lock().unwrap();
+            let current_db_value = if max_sample > 0.0 {
+                20.0 * max_sample.log10()
+            } else {
+                crate::constants::audio::MIN_DB_LEVEL
+            };
 
-        // Two-stage smoothing
-        let audio_smoothing = crate::constants::smoothing::AUDIO_SMOOTHING_FACTOR;
-        *smoothed = *smoothed * (1.0 - audio_smoothing) + current_db_value * audio_smoothing;
+            // Update current dB
+            current_db_vec[i] = current_db_value;
 
-        let display_smoothing = crate::constants::smoothing::DISPLAY_SMOOTHING_FACTOR;
-        *display = *display * (1.0 - display_smoothing) + *smoothed * display_smoothing;
+            // Apply smoothing
+            let audio_smoothing = crate::constants::smoothing::AUDIO_SMOOTHING_FACTOR;
+            smoothed_vec[i] = smoothed_vec[i] * (1.0 - audio_smoothing) + current_db_value * audio_smoothing;
 
-        // Check threshold
-        let mut threshold_flag = threshold_reached.lock().unwrap();
-        if max_sample > linear_threshold {
-            *threshold_flag = true;
+            let display_smoothing = crate::constants::smoothing::DISPLAY_SMOOTHING_FACTOR;
+            display_vec[i] = display_vec[i] * (1.0 - display_smoothing) + smoothed_vec[i] * display_smoothing;
+
+            // Check threshold
+            if max_sample > linear_threshold {
+                threshold_vec[i] = true;
+            }
         }
     }
 }
