@@ -95,6 +95,7 @@ mod tests {
             threshold_db: 0,
             min_db: -60.0,
             device_name: None,
+            channels: vec![0],
         };
         // 0 dB should convert to amplitude of 1.0
         assert!((config.linear_threshold() - 1.0).abs() < 0.001);
@@ -103,6 +104,7 @@ mod tests {
             threshold_db: -20,
             min_db: -60.0,
             device_name: Some("test_device".to_string()),
+            channels: vec![0],
         };
         // -20 dB should convert to amplitude of ~0.1
         assert!((config.linear_threshold() - 0.1).abs() < 0.01);
