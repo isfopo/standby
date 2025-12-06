@@ -1,11 +1,11 @@
 //! UI rendering and layout utilities
 
 use ratatui::{
-    Frame,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
+    Frame,
 };
 
 /// Application state for UI rendering
@@ -138,12 +138,9 @@ pub fn render_ui(f: &mut Frame, state: &UiState) {
         (((state.threshold_db as f32 + 60.0) / 60.0).clamp(0.0, 1.0) * (width - 2) as f32) as usize;
     let mut bar = String::new();
     for i in 0..(width - 2) {
-        if i == threshold_pos {
-            bar.push('|');
-        } else {
-            bar.push('─');
-        }
+        bar.push('─');
     }
+
     let threshold_text = Paragraph::new(format!("Threshold: {} dB\n{}", state.threshold_db, bar));
     f.render_widget(threshold_text, chunks[2]);
 
