@@ -40,9 +40,7 @@ pub struct RunResult {
 
 impl App {
     /// Initialize the application with configuration
-    pub fn new() -> AppResult<Self> {
-        let config = Config::from_args().map_err(|e| AppError::Config(e.to_string()))?;
-
+    pub fn new_with_config(config: Config) -> AppResult<Self> {
         // Setup terminal
         enable_raw_mode()?;
         let mut stdout = io::stdout();

@@ -77,25 +77,17 @@ For detailed information about creating and publishing releases, see [RELEASE.md
 ### Basic Usage
 
 ```bash
-# Monitor with default settings (0 dB threshold)
-soundcheck detect
+# List available audio devices (interactive selection)
+soundcheck list
 
-# Set custom threshold
-soundcheck detect --threshold=-10
-
-# Specify audio device
-soundcheck detect --device="MacBook Pro Microphone"
-
-# Monitor multiple channels
-soundcheck detect --channels 0,1
-
-# Customize dB range and channels
-soundcheck detect --threshold=-25 --min-db=-80 --channels 0,1 --device="External USB Audio"
+# Pipe device selection to detect
+soundcheck list | xargs soundcheck detect --device
 ```
 
 ### Commands
 
 - `detect`: Monitor audio levels and exit when threshold is exceeded
+- `list`: List available audio input devices
 
 ### Detect Command Options
 
@@ -105,6 +97,12 @@ soundcheck detect --threshold=-25 --min-db=-80 --channels 0,1 --device="External
 | `--min-db`    | Minimum dB level for display (-100 to 0)       | -60            | `--min-db -80`                 |
 | `--channels`  | Audio channels to monitor (comma-separated)    | [0]            | `--channels 0,1`               |
 | `--device`    | Audio input device name                        | Default device | `--device "USB Microphone"`    |
+
+### List Command
+
+```bash
+soundcheck list  # Interactive device selection (navigate with arrow keys, press Enter)
+```
 
 ### Multi-Channel Monitoring
 
@@ -173,6 +171,7 @@ cargo fmt
 
 **"Device not found"**
 
+- Use `soundcheck list` to see available devices
 - Use `soundcheck detect --help` to see available options
 - Verify the device name spelling
 

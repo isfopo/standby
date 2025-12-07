@@ -15,6 +15,8 @@ pub struct Args {
 pub enum Commands {
     /// Detect audio levels and exit when threshold is exceeded
     Detect(DetectArgs),
+    /// List available audio input devices
+    List(ListArgs),
 }
 
 #[derive(Parser)]
@@ -36,6 +38,9 @@ pub struct DetectArgs {
     pub channels: Vec<usize>,
 }
 
+#[derive(Parser)]
+pub struct ListArgs {}
+
 /// Application configuration derived from command line arguments
 pub struct Config {
     pub threshold_db: i32,
@@ -45,38 +50,32 @@ pub struct Config {
 }
 
 impl Config {
-    /// Parse command line arguments and validate configuration
-    pub fn from_args() -> Result<Self, Box<dyn std::error::Error>> {
-        let args = Args::parse();
-
-        match args.command {
-            Commands::Detect(detect_args) => {
-                // Validate threshold range
-                if detect_args.threshold > 0 || detect_args.threshold < -60 {
-                    return Err(format!(
-                        "Threshold must be between -60 and 0 dB, got {}",
-                        detect_args.threshold
-                    )
-                    .into());
-                }
-
-                // Validate min_db range
-                if detect_args.min_db >= 0 || detect_args.min_db < -100 {
-                    return Err(format!(
-                        "Minimum dB must be between -100 and 0 dB, got {}",
-                        detect_args.min_db
-                    )
-                    .into());
-                }
-
-                Ok(Config {
-                    threshold_db: detect_args.threshold,
-                    min_db: detect_args.min_db,
-                    channels: detect_args.channels,
-                    device_name: detect_args.device,
-                })
-            }
+    /// Create configuration from detect arguments
+    pub fn from_detect_args(detect_args: DetectArgs) -> Result<Self, Box<dyn std::error::Error>> {
+        // Validate threshold range
+        if detect_args.threshold > 0 || detect_args.threshold < -60 {
+            return Err(format!(
+                "Threshold must be between -60 and 0 dB, got {}",
+                detect_args.threshold
+            )
+            .into());
         }
+
+        // Validate min_db range
+        if detect_args.min_db >= 0 || detect_args.min_db < -100 {
+            return Err(format!(
+                "Minimum dB must be between -100 and 0 dB, got {}",
+                detect_args.min_db
+            )
+            .into());
+        }
+
+        Ok(Config {
+            threshold_db: detect_args.threshold,
+            min_db: detect_args.min_db,
+            channels: detect_args.channels,
+            device_name: detect_args.device,
+        })
     }
 
     /// Convert dB threshold to linear amplitude for audio processing

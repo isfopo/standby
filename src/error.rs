@@ -9,8 +9,6 @@ pub enum AppError {
     AudioDevice(String),
     /// Audio stream related errors
     AudioStream(String),
-    /// Configuration validation errors
-    Config(String),
 
     /// General I/O errors
     Io(std::io::Error),
@@ -21,7 +19,6 @@ impl fmt::Display for AppError {
         match self {
             AppError::AudioDevice(msg) => write!(f, "Audio device error: {}", msg),
             AppError::AudioStream(msg) => write!(f, "Audio stream error: {}", msg),
-            AppError::Config(msg) => write!(f, "Configuration error: {}", msg),
             AppError::Io(err) => write!(f, "I/O error: {}", err),
         }
     }
