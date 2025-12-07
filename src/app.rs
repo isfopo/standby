@@ -9,9 +9,9 @@ use cpal::traits::StreamTrait;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{backend::CrosstermBackend, Terminal};
+use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io;
 use std::time::Duration;
 
@@ -209,7 +209,8 @@ impl App {
     pub async fn run_max(&mut self, duration: Option<f32>) -> Result<Vec<f32>, AppError> {
         // Setup audio
         let (device, audio_config) =
-            match audio::setup_audio_device(self.config.device_name.clone(), &self.config.channels) {
+            match audio::setup_audio_device(self.config.device_name.clone(), &self.config.channels)
+            {
                 Ok(result) => result,
                 Err(e) => return Err(e),
             };
@@ -220,7 +221,11 @@ impl App {
         let (current_db, smoothed_db, display_db, threshold_reached) = shared_state.audio_refs();
 
         // Create app state with max tracking
-        let mut app_state = AppState::new(device_name, self.config.threshold_db, self.config.channels.len());
+        let mut app_state = AppState::new(
+            device_name,
+            self.config.threshold_db,
+            self.config.channels.len(),
+        );
 
         // Build audio stream
         let audio_callback = audio::create_audio_callback(
@@ -253,7 +258,8 @@ impl App {
             crate::constants::ui::UPDATE_INTERVAL_MS,
         ));
         let start_time = tokio::time::Instant::now();
-        let mut max_levels = vec![crate::constants::audio::MIN_DB_LEVEL as f32; self.config.channels.len()];
+        let mut max_levels =
+            vec![crate::constants::audio::MIN_DB_LEVEL as f32; self.config.channels.len()];
 
         loop {
             // Update state from shared values
@@ -331,7 +337,8 @@ impl App {
     pub async fn run_average(&mut self, duration: Option<f32>) -> Result<Vec<f32>, AppError> {
         // Setup audio
         let (device, audio_config) =
-            match audio::setup_audio_device(self.config.device_name.clone(), &self.config.channels) {
+            match audio::setup_audio_device(self.config.device_name.clone(), &self.config.channels)
+            {
                 Ok(result) => result,
                 Err(e) => return Err(e),
             };
@@ -342,7 +349,11 @@ impl App {
         let (current_db, smoothed_db, display_db, threshold_reached) = shared_state.audio_refs();
 
         // Create app state with average tracking
-        let mut app_state = AppState::new(device_name, self.config.threshold_db, self.config.channels.len());
+        let mut app_state = AppState::new(
+            device_name,
+            self.config.threshold_db,
+            self.config.channels.len(),
+        );
 
         // Build audio stream
         let audio_callback = audio::create_audio_callback(

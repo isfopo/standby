@@ -7,17 +7,15 @@ mod smoothing;
 mod state;
 mod ui;
 
-use cpal::traits::{DeviceTrait, HostTrait};
 use clap::Parser;
-use dialoguer::{theme::ColorfulTheme, Select};
+use cpal::traits::{DeviceTrait, HostTrait};
+use dialoguer::{Select, theme::ColorfulTheme};
 
 fn list_devices() -> Result<(), Box<dyn std::error::Error>> {
     let host = cpal::default_host();
     let devices = host.input_devices()?;
 
-    let device_list: Vec<String> = devices
-        .filter_map(|d| d.name().ok())
-        .collect();
+    let device_list: Vec<String> = devices.filter_map(|d| d.name().ok()).collect();
 
     if device_list.is_empty() {
         println!("No audio input devices found.");

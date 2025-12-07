@@ -1,11 +1,11 @@
 //! UI rendering and layout utilities
 
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 /// Application state for UI rendering
@@ -156,7 +156,7 @@ pub fn render_ui(f: &mut Frame, state: &UiState) {
         let bar_width =
             (chunks[3].width as usize).saturating_sub(crate::constants::ui::BAR_BORDER_WIDTH);
         let bar_line = create_gradient_bar(bar_width, db_ratio);
-            let label_line = create_db_labels(bar_width, state.threshold_db, state.min_db);
+        let label_line = create_db_labels(bar_width, state.threshold_db, state.min_db);
         let gauge = Paragraph::new(vec![bar_line, label_line]).block(
             Block::default()
                 .title(format!(
@@ -181,7 +181,7 @@ pub fn render_ui(f: &mut Frame, state: &UiState) {
             let bar_width =
                 (chunk.width as usize).saturating_sub(crate::constants::ui::BAR_BORDER_WIDTH);
             let bar_line = create_gradient_bar(bar_width, db_ratio);
-        let label_line = create_db_labels(bar_width, state.threshold_db, state.min_db);
+            let label_line = create_db_labels(bar_width, state.threshold_db, state.min_db);
             let gauge = Paragraph::new(vec![bar_line, label_line]).block(
                 Block::default()
                     .title(format!(
