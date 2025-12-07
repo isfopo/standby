@@ -1,5 +1,7 @@
 //! Main application logic and orchestration
 
+#![allow(clippy::collapsible_if)]
+
 use crate::audio;
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
@@ -221,11 +223,7 @@ impl App {
         let (current_db, smoothed_db, display_db, threshold_reached) = shared_state.audio_refs();
 
         // Create app state with max tracking
-        let mut app_state = AppState::new(
-            device_name,
-            self.config.threshold_db,
-            self.config.channels.len(),
-        );
+        let mut app_state = AppState::new(device_name, self.config.threshold_db, self.config.channels.len());
 
         // Build audio stream
         let audio_callback = audio::create_audio_callback(
@@ -252,6 +250,66 @@ impl App {
         if let Err(e) = stream.play() {
             return Err(e.into());
         }
+
+        // Main UI loop with timeout
+        let mut interval = tokio::time::interval(Duration::from_millis(
+            crate::constants::ui::UPDATE_INTERVAL_MS,
+        ));
+        let start_time = tokio::time::Instant::now();
+        let mut max_levels = vec![crate::constants::audio::MIN_DB_LEVEL as f32; self.config.channels.len()];
+
+        loop {
+            // Update state from shared values
+            app_state.update_from_audio(
+                &shared_state.current_db,
+                &shared_state.smoothed_db,
+                &shared_state.display_db,
+                &shared_state.threshold_reached,
+            );
+
+            // Update max levels
+            for (i, &current) in app_state.current_db.iter().enumerate() {
+                if current > max_levels[i] {
+                    max_levels[i] = current;
+                }
+            }
+
+            // Render UI
+            if let Err(e) = self.terminal.draw(|f| {
+                let ui_state = ui::UiState {
+                    device_name: app_state.device_name.clone(),
+                    current_db: app_state.current_db.clone(),
+                    display_db: app_state.display_db.clone(),
+                    threshold_db: app_state.threshold_db,
+                    min_db: self.config.min_db,
+                    status: app_state.status.clone(),
+                };
+                ui::render_ui(f, &ui_state);
+            }) {
+                return Err(e.into());
+            }
+
+            // Check for timeout
+            if let Some(dur) = duration && start_time.elapsed() >= Duration::from_secs_f32(dur) {
+                break;
+            }
+
+            // Check for keyboard events
+            if crossterm::event::poll(Duration::from_millis(0)).unwrap_or(false) {
+                if let Ok(Event::Key(key_event)) = crossterm::event::read() {
+                    match key_event.code {
+                        KeyCode::Enter => break,
+                        KeyCode::Char('c')
+                            if key_event
+                                .modifiers
+                                .contains(crossterm::event::KeyModifiers::CONTROL) =>
+                        {
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+            }
 
         // Main UI loop with timeout
         let mut interval = tokio::time::interval(Duration::from_millis(
@@ -293,10 +351,8 @@ impl App {
             }
 
             // Check for timeout
-            if let Some(dur) = duration {
-                if start_time.elapsed() >= Duration::from_secs_f32(dur) {
-                    break;
-                }
+            if let Some(dur) = duration && start_time.elapsed() >= Duration::from_secs_f32(dur) {
+                break;
             }
 
             // Check for keyboard events
