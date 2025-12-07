@@ -140,7 +140,9 @@ impl Config {
         }
 
         // Validate seconds if provided
-        if let Some(seconds) = max_args.seconds && seconds <= 0.0 {
+        if let Some(seconds) = max_args.seconds
+            && seconds <= 0.0
+        {
             return Err("Seconds must be positive".into());
         }
 
@@ -166,7 +168,9 @@ impl Config {
         }
 
         // Validate seconds if provided
-        if let Some(seconds) = average_args.seconds && seconds <= 0.0 {
+        if let Some(seconds) = average_args.seconds
+            && seconds <= 0.0
+        {
             return Err("Seconds must be positive".into());
         }
 

@@ -223,7 +223,11 @@ impl App {
         let (current_db, smoothed_db, display_db, threshold_reached) = shared_state.audio_refs();
 
         // Create app state with max tracking
-        let mut app_state = AppState::new(device_name, self.config.threshold_db, self.config.channels.len());
+        let mut app_state = AppState::new(
+            device_name,
+            self.config.threshold_db,
+            self.config.channels.len(),
+        );
 
         // Build audio stream
         let audio_callback = audio::create_audio_callback(
@@ -256,7 +260,8 @@ impl App {
             crate::constants::ui::UPDATE_INTERVAL_MS,
         ));
         let start_time = tokio::time::Instant::now();
-        let mut max_levels = vec![crate::constants::audio::MIN_DB_LEVEL as f32; self.config.channels.len()];
+        let mut max_levels =
+            vec![crate::constants::audio::MIN_DB_LEVEL as f32; self.config.channels.len()];
 
         loop {
             // Update state from shared values
@@ -290,7 +295,9 @@ impl App {
             }
 
             // Check for timeout
-            if let Some(dur) = duration && start_time.elapsed() >= Duration::from_secs_f32(dur) {
+            if let Some(dur) = duration
+                && start_time.elapsed() >= Duration::from_secs_f32(dur)
+            {
                 break;
             }
 
