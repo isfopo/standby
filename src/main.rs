@@ -100,7 +100,7 @@ async fn main() {
             };
 
             // Run max monitoring
-            match app.run_max(max_args.time).await {
+            match app.run_max(max_args.seconds).await {
                 Ok(max_levels) => {
                     println!("Maximum dB levels detected:");
                     for (i, &level) in max_levels.iter().enumerate() {

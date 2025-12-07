@@ -84,7 +84,7 @@ soundcheck list
 soundcheck list | xargs soundcheck detect --device
 
 # Monitor max levels for 5 seconds
-soundcheck max --time 5 --channels 0,1
+soundcheck max --seconds 5 --channels 0,1
 
 # Monitor until Enter is pressed
 soundcheck max --channels 0,1
@@ -109,7 +109,7 @@ soundcheck max --channels 0,1
 
 | Option        | Description                                    | Default        | Example                        |
 | ------------- | ---------------------------------------------- | -------------- | ------------------------------ |
-| `--time`      | Monitoring duration in seconds                 | Until Enter     | `--time 10`                    |
+| `--seconds`   | Monitoring duration in seconds                 | Until Enter     | `--seconds 10`                 |
 | `--min-db`    | Minimum dB level for display (-100 to 0)       | -60            | `--min-db -80`                 |
 | `--channels`  | Audio channels to monitor (comma-separated)    | [0]            | `--channels 0,1`               |
 | `--device`    | Audio input device name                        | Default device | `--device "USB Microphone"`    |

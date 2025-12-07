@@ -47,7 +47,7 @@ pub struct ListArgs {}
 pub struct MaxArgs {
     /// Monitoring duration in seconds (optional, runs until Enter if not specified)
     #[arg(long)]
-    pub time: Option<f32>,
+    pub seconds: Option<f32>,
 
     /// Minimum dB level for display (e.g., -60)
     #[arg(long, default_value_t = crate::constants::audio::MIN_DB_LEVEL)]
@@ -110,10 +110,10 @@ impl Config {
             .into());
         }
 
-        // Validate time if provided
-        if let Some(time) = max_args.time {
-            if time <= 0.0 {
-                return Err("Time must be positive".into());
+        // Validate seconds if provided
+        if let Some(seconds) = max_args.seconds {
+            if seconds <= 0.0 {
+                return Err("Seconds must be positive".into());
             }
         }
 
