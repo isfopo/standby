@@ -2,7 +2,7 @@
 
 A terminal-based audio monitoring application that displays real-time audio levels from selected input channels and exits when sound exceeds a specified threshold.
 
-Ispired by the SP404 fewture, the idea for this program came from a tool to make one shot sample recording easier for the solo music producer. Chain this with any audio recoridng program, such as ffmpg, and the recording will hold until the dB threshold is reached, the start recording immediately. This will result in a clean sample with no need to trim empty space at the beginning.
+Ispired by the SP404 feature, the idea for this program came from a tool to make one shot sample recording easier for the solo music producer. Chain this with any audio recoridng program, such as ffmpg, and the recording will hold until the dB threshold is reached, the start recording immediately. This will result in a clean sample with no need to trim empty space at the beginning.
 ## Installation 🚀
 
 ### From Crates.io
